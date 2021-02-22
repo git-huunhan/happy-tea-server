@@ -39,7 +39,7 @@ const productSchema = new mongoose.Schema(
     },
     shipping: {
       type: String,
-      enum: ["Yes", "No"],
+      enum: ["Có", "Không"],
     },
     topping: {
       type: String,
