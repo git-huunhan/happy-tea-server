@@ -56,12 +56,12 @@ const productSchema = new mongoose.Schema(
       type: String,
       enum: ["Milksha", "Sharetea", "Coco", "Koi", "Chachago"],
     },
-    // ratings: [
-    //   {
-    //     star: Number,
-    //     postedBy: {type: ObjectId, ref: "User"}
-    //   }
-    // ]
+    ratings: [
+      {
+        star: Number,
+        postedBy: {type: ObjectId, ref: "User"}
+      }
+    ]
   },
   { timestamps: true }
 );
