@@ -1,4 +1,5 @@
 const Product = require("../models/product");
+const User = require("../models/user");
 const slugify = require("slugify");
 
 exports.create = async (req, res) => {
@@ -114,7 +115,7 @@ exports.productsCount = async (req, res) => {
 };
 
 exports.productStar = async (req, res) => {
-  const product = await Product.findById(res.params.productId).exec();
+  const product = await Product.findById(req.params.productId).exec();
   const user = await User.findOne({ email: req.user.email }).exec();
   const { star } = req.body;
 
@@ -134,6 +135,7 @@ exports.productStar = async (req, res) => {
       { new: true }
     ).exec();
     console.log("ratingAdded", ratingAdded);
+    res.json(ratingAdded);
   } else {
     // if user have already left rating, update it
     const ratingUpdated = await Product.updateOne(
