@@ -51,3 +51,11 @@ exports.remove = async (req, res) => {
     res.status(400).send("Sub delete failed");
   }
 };
+
+exports.subsCount = async (req, res) => {
+  let subs = await Sub.find({})
+    .limit(parseInt(req.params.count))
+    .sort([["createdAt", "desc"]])
+    .exec();
+  res.json(subs);
+};
