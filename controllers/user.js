@@ -2,6 +2,8 @@ const User = require("../models/user");
 const Product = require("../models/product");
 const Cart = require("../models/cart");
 const Coupon = require("../models/coupon");
+const Order = require("../models/order");
+const uniqid = require("uniqid");
 
 exports.userCart = async (req, res) => {
   // console.log(req.body); // {cart: []}
@@ -64,6 +66,14 @@ exports.getUserCart = async (req, res) => {
   res.json({ products, cartTotal, totalAfterDiscount });
 };
 
+exports.emptyCart = async (req, res) => {
+  console.log("empty cart");
+  const user = await User.findOne({ email: req.user.email }).exec();
+
+  const cart = await Cart.findOneAndRemove({ orderedBy: user._id }).exec();
+  res.json(cart);
+};
+
 exports.saveAddress = async (req, res) => {
   const userAddress = await User.findOneAndUpdate(
     { email: req.user.email },
@@ -105,11 +115,156 @@ exports.applyCouponToUserCart = async (req, res) => {
     (cartTotal * validCoupon.discount) / 100
   ).toFixed(0);
 
+  console.log("------------>", totalAfterDiscount);
+
   Cart.findOneAndUpdate(
     { orderedBy: user._id },
     { totalAfterDiscount },
     { new: true }
-  );
+  ).exec();
 
   res.json(totalAfterDiscount);
+};
+
+exports.createOrder = async (req, res) => {
+  const { paymentIntent } = req.body.stripeResponse;
+  const user = await User.findOne({
+    email: req.user.email,
+  }).exec();
+
+  let { address } = await User.findOne({ email: req.user.email }).exec();
+
+  let { products, cartTotal } = await Cart.findOne({
+    orderedBy: user._id,
+  }).exec();
+
+  let newOrder = await new Order({
+    address,
+    products,
+    cartTotal,
+    paymentIntent,
+    orderedBy: user._id,
+  }).save();
+
+  // decrement quantity, increment sold
+  let bulkOption = products.map((item) => {
+    return {
+      updateOne: {
+        filter: {
+          _id: item.product._id,
+        },
+        update: { $inc: { sold: +item.count } },
+      },
+    };
+  });
+
+  let updated = await Product.bulkWrite(bulkOption, {});
+
+  console.log("PRODUCT SOLD ++", updated);
+
+  console.log("NEW ORDER SAVED", newOrder);
+
+  res.json({ ok: true });
+};
+
+exports.orders = async (req, res) => {
+  let user = await User.findOne({ email: req.user.email }).exec();
+
+  let userOrders = await Order.find({ orderedBy: user._id })
+    .sort("-createdAt")
+    .populate("products.product")
+    .exec();
+
+  res.json(userOrders);
+};
+
+// addToWishlist, wishlist, removeFromWishlist
+exports.addToWishlist = async (req, res) => {
+  const { productId } = req.body;
+
+  const user = await User.findOneAndUpdate(
+    { email: req.user.email },
+    { $addToSet: { wishlist: productId } }
+  ).exec();
+
+  res.json({ ok: true });
+};
+
+exports.wishlist = async (req, res) => {
+  const list = await User.findOne({ email: req.user.email })
+    .select("wishlist")
+    .populate("wishlist")
+    .exec();
+
+  res.json(list);
+};
+
+exports.removeFromWishlist = async (req, res) => {
+  const { productId } = req.params;
+
+  const user = await User.findOneAndUpdate(
+    { email: req.user.email },
+    { $pull: { wishlist: productId } }
+  ).exec();
+
+  res.json({ ok: true });
+};
+
+exports.createCashOrder = async (req, res) => {
+  const { COD, couponApplied } = req.body;
+
+  // if COD is true, create order with status of Cash On Delivery
+  if (!COD) return res.status(400).send("Không thể tạo đơn hàng COD");
+
+  const user = await User.findOne({
+    email: req.user.email,
+  }).exec();
+
+  let { address } = await User.findOne({ email: req.user.email }).exec();
+
+  let userCart = await Cart.findOne({
+    orderedBy: user._id,
+  }).exec();
+
+  let finalAmount = 0;
+
+  if (couponApplied && userCart.totalAfterDiscount) {
+    finalAmount = userCart.totalAfterDiscount;
+  } else {
+    finalAmount = userCart.cartTotal;
+  }
+
+  let newOrder = await new Order({
+    address,
+    products: userCart.products,
+    cartTotal: userCart.cartTotal,
+    paymentIntent: {
+      id: uniqid("cod_"),
+      amount: finalAmount * 100,
+      currency: "usd",
+      created: Math.floor(Date.now() / 1000),
+      payment_method_types: ["Thanh toán khi nhận hàng"],
+    },
+    orderedBy: user._id,
+  }).save();
+
+  // decrement quantity, increment sold
+  let bulkOption = userCart.products.map((item) => {
+    return {
+      updateOne: {
+        filter: {
+          _id: item.product._id,
+        },
+        update: { $inc: { sold: +item.count } },
+      },
+    };
+  });
+
+  let updated = await Product.bulkWrite(bulkOption, {});
+
+  console.log("PRODUCT SOLD ++", updated);
+
+  console.log("NEW ORDER SAVED", newOrder);
+
+  res.json({ ok: true });
 };

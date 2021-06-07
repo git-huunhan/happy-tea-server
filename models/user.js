@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "Da Lat",
     },
-    // wishlist: [{ type: ObjectId, ref: "Product" }],
+    wishlist: [{ type: ObjectId, ref: "Product" }],
   },
   { timestamps: true }
 );
