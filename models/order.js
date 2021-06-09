@@ -4,6 +4,9 @@ const { ObjectId } = mongoose.Schema;
 
 const orderSchema = new mongoose.Schema(
   {
+    email: {
+      type: String,
+    },
     address: {
       type: String,
     },

@@ -139,6 +139,7 @@ exports.createOrder = async (req, res) => {
   }).exec();
 
   let newOrder = await new Order({
+    email: user.email,
     address,
     products,
     cartTotal,
@@ -235,6 +236,7 @@ exports.createCashOrder = async (req, res) => {
   }
 
   let newOrder = await new Order({
+    email: user.email,
     address,
     products: userCart.products,
     cartTotal: userCart.cartTotal,
